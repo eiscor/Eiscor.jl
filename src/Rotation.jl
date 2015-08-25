@@ -1,4 +1,4 @@
-immutable Rotation{T}
-    c::T
-    s::T
+type Rotation{C,S}
+  c::C
+  s::S
 end
