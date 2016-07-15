@@ -15,44 +15,45 @@ function StartChase(Q,D,shift)
 
   # fuse
   Binv = [cr; -ci; -s]
-  Binv,Q = Rotation.Rot3Fusion(false,Binv,Q)
+  Rotation.Rot3Fusion(false,Binv,Q)
 
   # swap diag 
-  D,B = Rotation.Rot3SwapDiag(D,B)
+  Rotation.Rot3SwapDiag(D,B)
 
   # fuse D and Binv
   scl1 = complex(D[1],D[2])*complex(Binv[1],Binv[2])
   scl2 = complex(D[3],D[4])*complex(Binv[1],-Binv[2])
-  D = [real(scl1); imag(scl1); real(scl2); imag(scl2)]
+  D[1] = real(scl1)
+  D[2] = imag(scl1)
+  D[3] = real(scl2)
+  D[4] = imag(scl2)
 
-  Q,D,B
+  B
 
 end
 
 function ChaseDown(Q,D,B)
 
   # turnover
-  B,Q[1:3],Q[4:6] = Rotation.Rot3Turnover(Q[1:3],Q[4:6],B)
+  Rotation.Rot3Turnover(slice(Q,1:3),slice(Q,4:6),B)
 
   # swap diag
-  D,B = Rotation.Rot3SwapDiag(D,B)
+  Rotation.Rot3SwapDiag(D,B)
 
-  # return
-  Q,D,B
-  
 end
 
 function EndChase(Q,D,B)
 
   # fuse
-  Q,B = Rotation.Rot3Fusion(true,Q,B)
+  Rotation.Rot3Fusion(true,Q,B)
 
   # fuse D and Binv
   scl1 = complex(D[1],D[2])*complex(B[1],B[2])
   scl2 = complex(D[3],D[4])*complex(B[1],-B[2])
-  D = [real(scl1); imag(scl1); real(scl2); imag(scl2)]
-
-  Q,D
+  D[1] = real(scl1)
+  D[2] = imag(scl1)
+  D[3] = real(scl2)
+  D[4] = imag(scl2)
 
 end
 
@@ -68,10 +69,12 @@ function SingleStep(flag,Q,D)
     # rayleigh quotient shift
     shift = complex(Q[end-2],-Q[end-1])*complex(D[end-1],D[end])
   end
-print(" shift = ",shift,"\n")
+  if abs(shift) > 0
+    shift = shift/abs(shift)
+  end
 
   # start chase
-  Q[1:3],D[1:4],B = StartChase(Q[1:3],D[1:4],shift)
+  B = StartChase(slice(Q,1:3),slice(D,1:4),shift)
 
   # loop for chasing
   for ii = 1:(n-2)
@@ -83,14 +86,125 @@ print(" shift = ",shift,"\n")
     id2 = 2*ii+4
 
     # chase down
-    Q[iq1:iq2],D[id1:id2],B = ChaseDown(Q[iq1:iq2],D[id1:id2],B)   
+    ChaseDown(slice(Q,iq1:iq2),slice(D,id1:id2),B)   
 
   end
 
   # end chase
-  Q[end-2:end],D[end-3:end] = EndChase(Q[end-2:end],D[end-3:end],B)
+  EndChase(slice(Q,3*n-5:3*n-3),slice(D,2*n-3:2*n),B)
 
-  Q,D
+end
+
+function DeflationCheck(Q,D)
+
+  # compute n
+  n = round(Int,length(D)/2)
+
+  # set tolerance based on type
+  tol = eps(typeof(D[1]))
+
+  # initialize zero
+  ZERO = 0
+
+  # loop for chasing
+  for ii = 1:(n-1)
+
+    # get off-diagonal of Q
+    nrm = abs(Q[3*(n-ii)])
+    if ( nrm < tol )
+
+      # set zero
+      ZERO = max(0,n-ii)
+
+      # fetch entries of Q
+      qr = Q[3*(n-ii)-2]
+      qi = Q[3*(n-ii)-1]
+
+      # update entries of Q
+      Q[3*(n-ii)-2] = 1
+      Q[3*(n-ii)-1] = 0
+      Q[3*(n-ii)] = 0
+
+      # update entries of D
+      scl1 = complex(qr,qi)*complex(D[2*ZERO-1],D[2*ZERO])
+      scl2 = complex(qr,-qi)*complex(D[2*ZERO+1],D[2*ZERO+2])
+      D[2*ZERO-1] = real(scl1)
+      D[2*ZERO] = imag(scl1)
+      D[2*ZERO+1] = real(scl2)
+      D[2*ZERO+2] = imag(scl2)
+ 
+      # break out
+      break 
+
+    end
+
+  end
+
+  ZERO
+
+end
+
+function UnitaryFA(Q,D,ITS)
+
+  # get size 
+  N = round(Int,length(D)/2)
+
+  # initialize variables
+  STR = 1
+  STP = N-1
+  ZERO = 0
+  ITMAX = 20*N
+  ITCNT = 0
+
+  # iteration loop
+  for kk = 1:ITMAX
+
+    # check for completion
+    if(STP <= 0) 
+      break
+    end 
+    
+    # check for deflation
+    ZERO = DeflationCheck(slice(Q,(3*STR-2):(3*STP)),slice(D,(2*STR-1):(2*STP+2)))
+
+    # if ZERO > 0 deflate
+    if ZERO > 0
+    
+      # set itcnt
+      ITS[STR+ZERO-1] = ITCNT
+      ITCNT = 0
+
+      # move STP if at bottom
+      if ZERO == (STP-STR+1)
+        STP -= 1
+        ZERO = 0
+        STR = 1
+      # otherwise move STR
+      else
+        STR = STR + ZERO 
+        ZERO = 0
+      end
+    
+    # if greater than 2x2 chase a bulge
+    else
+
+      # perform singleshift iteration
+      if ( ITCNT == 10 )
+        SingleStep(true,slice(Q,(3*STR-2):(3*STP)),slice(D,(2*STR-1):(2*STP+2)))
+      else
+        SingleStep(false,slice(Q,(3*STR-2):(3*STP)),slice(D,(2*STR-1):(2*STP+2)))
+      end     
+
+      # update indices
+      ITCNT += 1
+ 
+    end
+    
+    # if ITMAX hit
+    if (kk == ITMAX) 
+    end
+    
+  end
 
 end
 

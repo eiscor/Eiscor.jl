@@ -2,7 +2,7 @@ module Rotation
 
 function Rot3Vec3Gen(AR,AI,B)
 
-  NRM = norm([AR;AI;B])
+  NRM = sqrt(AR*AR+AI*AI+B*B)
   CR = AR/NRM
   CI = AI/NRM
   S = B/NRM
@@ -30,57 +30,47 @@ function Rot3Turnover(G1,G2,G3)
      # using the procedure for the generic case results in a rotation with
      # c=1 and s=0 and in a rotation with a not necessarily real sine
      
-     # initialize c4r, c4i and s4
-     T = [c1r*c2r + c1i*c2i; -c1i*c2r + c1r*c2i; s2]
-     
      # compute first rotation
-     c4r,c4i,s4,nrm = Rot3Vec3Gen(T[1],T[2],T[3])
-     
-     # initialize c5r, c5i and s5
-     T = [c1r*c3r - c1i*c3i; c1r*c3i + c1i*c3r; 0]
+     c4r,c4i,s4,nrm = Rot3Vec3Gen(c1r*c2r + c1i*c2i, -c1i*c2r + c1r*c2i, s2)
      
      # compute second rotation
-     c5r,c5i,s5,nrm = Rot3Vec3Gen(T[1],T[2],T[3])
-     
-     # initialize c6r, c6i and s6
-     T = [c2r*c4r + c2i*c4i + c1r*s2*s4; c2i*c4r - c2r*c4i + c1i*s2*s4;
-          s1*s2*s5 - (c5r*c2r + c5i*c2i)*s4 + s2*(c1r*(c4r*c5r + c4i*c5i) 
-          + c1i*(c4r*c5i - c4i*c5r))]
+     c5r,c5i,s5,nrm = Rot3Vec3Gen(c1r*c3r - c1i*c3i, c1r*c3i + c1i*c3r, 0)
      
      # compute third rotation
-     c6r,c6i,s6,nrm = Rot3Vec3Gen(T[1],T[2],T[3])
+     c6r,c6i,s6,nrm = Rot3Vec3Gen(c2r*c4r + c2i*c4i + c1r*s2*s4, 
+                                  c2i*c4r - c2r*c4i + c1i*s2*s4,
+          s1*s2*s5 - (c5r*c2r + c5i*c2i)*s4 + s2*(c1r*(c4r*c5r + c4i*c5i) 
+          + c1i*(c4r*c5i - c4i*c5r)))
      
   else
-     # initialize c4r, c4i and s4
-     T = [s1*c3r + (c1r*c2r + c1i*c2i)*s3; s1*c3i + (-c1i*c2r + c1r*c2i)*s3; s2*s3]
-     
      # compute first rotation
-     c4r,c4i,s4,nrm = Rot3Vec3Gen(T[1],T[2],T[3])
-     
-     # initialize c5r, c5i and s5
-     T = [c1r*c3r - c1i*c3i - s1*c2r*s3; c1r*c3i + c1i*c3r - s1*c2i*s3; nrm]
+     c4r,c4i,s4,nrm = Rot3Vec3Gen(s1*c3r + (c1r*c2r + c1i*c2i)*s3, 
+                                  s1*c3i + (-c1i*c2r + c1r*c2i)*s3, s2*s3)
      
      # compute second rotation
-     c5r,c5i,s5,nrm = Rot3Vec3Gen(T[1],T[2],T[3])
-     
-     # initialize c6r, c6i and s6
-     T = [c2r*c4r + c2i*c4i + c1r*s2*s4; c2i*c4r - c2r*c4i + c1i*s2*s4;
-          s1*s2*s5 - (c5r*c2r + c5i*c2i)*s4 + s2*(c1r*(c4r*c5r + c4i*c5i) 
-          + c1i*(c4r*c5i - c4i*c5r))]
+     c5r,c5i,s5,nrm = Rot3Vec3Gen(c1r*c3r - c1i*c3i - s1*c2r*s3,
+                                  c1r*c3i + c1i*c3r - s1*c2i*s3, nrm)
      
      # compute third rotation
-     c6r,c6i,s6,nrm = Rot3Vec3Gen(T[1],T[2],T[3])
+     c6r,c6i,s6,nrm = Rot3Vec3Gen(c2r*c4r + c2i*c4i + c1r*s2*s4,
+                                  c2i*c4r - c2r*c4i + c1i*s2*s4,
+          s1*s2*s5 - (c5r*c2r + c5i*c2i)*s4 + s2*(c1r*(c4r*c5r + c4i*c5i) 
+          + c1i*(c4r*c5i - c4i*c5r)))
 
   end
 
   # store output
-  G4 = [c4r; c4i; s4]
-  G5 = [c5r; c5i; s5]
-  G6 = [c6r; c6i; s6]
+  G1[1] = c5r
+  G1[2] = c5i
+  G1[3] = s5
+  G2[1] = c6r
+  G2[2] = c6i
+  G2[3] = s6
+  G3[1] = c4r
+  G3[2] = c4i
+  G3[3] = s4
   
-  G4,G5,G6
-
-  end
+end
 
 function Rot3Fusion(FLAG,G1,G2)
 
@@ -114,34 +104,40 @@ function Rot3Fusion(FLAG,G1,G2)
     # store product in G1 and diagonal in G2
     if (FLAG) 
   
-        # update G3
+        # update G1
         c2r = c3r*phr + c3i*phi
         c2i = -c3r*phi + c3i*phr
         s2 = s3r*phr + s3i*phi
         c2r,c2i,s2,nrm = Rot3Vec3Gen(c2r,c2i,s2)
-        G3 = [c2r; c2i; s2]
+        G1[1] = c2r
+        G1[2] = c2i
+        G1[3] = s2
   
-        # set G4
-        G4 = [phr; phi; 0]
+        # set G2
+        G2[1] = phr
+        G2[2] = phi
+        G2[3] = 0
     
-    # store product in G4 and diagonal in G3
+    # store product in G1 and diagonal in G2
     else
   
-        # update G4
+        # update G2
         c2r = c3r*phr - c3i*phi
         c2i = c3r*phi + c3i*phr
         s2 = s3r*phr + s3i*phi
         c2r,c2i,s2,nrm = Rot3Vec3Gen(c2r,c2i,s2)
-        G4 = [c2r; c2i; s2]
+        G2[1] = c2r
+        G2[2] = c2i
+        G2[3] = s2
   
-        # set G3
-        G3 = [phr; -phi; 0]
+        # set G1
+        G1[1] = phr
+        G1[2] = -phi
+        G1[3] = 0
   
     end
 
-    G3,G4
-  
-  end 
+end 
 
 function Rot3SwapDiag(D,G)
 
@@ -163,13 +159,16 @@ function Rot3SwapDiag(D,G)
 
   # renormalize
   c1r,c1i,s1,nrm = Rot3Vec3Gen(c1r,c1i,s1) 
-  Gout = [c1r; c1i; s1]
+  G[1] = c1r
+  G[2] = c1i
+  G[3] = s1
     
   # set D
-  Dout = [d2r; d2i; d1r; d1i]
+  D[1] = d2r
+  D[2] = d2i
+  D[3] = d1r
+  D[4] = d1i
 
-  Dout,Gout
-  
 end 
 
 end
