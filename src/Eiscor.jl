@@ -1,6 +1,7 @@
 module Eiscor
 
 include("Rotation.jl")
+include("RFR.jl")
 
 function StartChase(Q,D,shift)
 
