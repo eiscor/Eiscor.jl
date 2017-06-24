@@ -41,7 +41,7 @@ function rfuqr!(u,vv,its)
     end
 
     # check for deflation
-    zer = deflate!(slice(u,str:stp),slice(vv,str:stp))
+    zer = deflate!(view(u,str:stp),view(vv,str:stp))
 
     # store itc if deflation
     if zer > 0
@@ -73,7 +73,7 @@ function rfuqr!(u,vv,its)
       end
 
       # perform singleshift iteration
-      singlestep!(slice(u,str:stp+1),slice(vv,str:stp+1),nu)
+      singlestep!(view(u,str:stp+1),view(vv,str:stp+1),nu)
      
       # update indices
       itc = itc + 1
